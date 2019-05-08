@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, Component, ElementRef, EmbeddedViewRef, EventEmitter, Input, OnInit, Output, TemplateRef, ViewChild, ViewContainerRef } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EmbeddedViewRef, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewContainerRef } from '@angular/core';
 import Popper from 'popper.js';
-import { debounceTime } from 'rxjs/operators';
+import { debounceTime, filter, takeUntil } from 'rxjs/operators';
 import { FormControl } from '@angular/forms';
+import { fromEvent } from 'rxjs';
+import { untilDestroyed } from 'ngx-take-until-destroy';
 
 @Component({
   selector: 'app-select',
@@ -9,31 +11,36 @@ import { FormControl } from '@angular/forms';
   styleUrls: ['./select.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class SelectComponent implements OnInit {
-  popperRef: Popper;
+export class SelectComponent implements OnInit, OnDestroy {
   @Input() model;
   @Input() labelKey = 'label';
   @Input() idKey = 'id';
   @Input() options = [];
   @Input() optionTpl: TemplateRef<any>;
   @Output() selectChange = new EventEmitter();
+  @Output() closed = new EventEmitter();
+
   visibleOptions = 4;
   searchControl = new FormControl();
 
-  @ViewChild('input') input: ElementRef<HTMLInputElement>;
-
   private view: EmbeddedViewRef<any>;
-  private original = [];
+  private popperRef: Popper;
+  private originalOptions = [];
 
-  constructor(private vcr: ViewContainerRef) {
+  constructor(private vcr: ViewContainerRef, private cdr: ChangeDetectorRef) {
+  }
+
+  get isOpen() {
+    return !!this.popperRef;
   }
 
   ngOnInit() {
-    this.original = [...this.options];
+    this.originalOptions = [...this.options];
     this.model = this.options.find(currentOption => currentOption[this.idKey] === this.model);
 
     this.searchControl.valueChanges.pipe(
       debounceTime(300),
+      untilDestroyed(this)
     ).subscribe(term => this.search(term));
   }
 
@@ -41,24 +48,21 @@ export class SelectComponent implements OnInit {
     return this.model ? this.model[this.labelKey] : 'Select...';
   }
 
-  toggle(dropdown: TemplateRef<any>, origin: HTMLElement) {
-    if ( !this.popperRef ) {
-      this.view = this.vcr.createEmbeddedView(dropdown);
-      const viewHTML = this.view.rootNodes[0];
-      document.body.appendChild(viewHTML);
-      viewHTML.style.width = `${origin.offsetWidth}px`;
+  open(dropdown: TemplateRef<any>, origin: HTMLElement) {
+    this.view = this.vcr.createEmbeddedView(dropdown);
+    const viewHTML = this.view.rootNodes[0];
+    document.body.appendChild(viewHTML);
+    viewHTML.style.width = `${origin.offsetWidth}px`;
 
-      this.popperRef = new Popper(origin, viewHTML, {
-        removeOnDestroy: true
-      });
+    this.popperRef = new Popper(origin, viewHTML, {
+      removeOnDestroy: true
+    });
 
-    } else {
-      this.close();
-
-    }
+    this.handleClickOutside();
   }
 
   close() {
+    this.closed.emit();
     this.popperRef.destroy();
     this.view.destroy();
     this.searchControl.patchValue('');
@@ -69,7 +73,7 @@ export class SelectComponent implements OnInit {
   select(option) {
     this.model = option;
     this.selectChange.emit(option[this.idKey]);
-    this.close();
+    // the handleClickOutside function will close the dropdown
   }
 
   isActive(option) {
@@ -80,16 +84,23 @@ export class SelectComponent implements OnInit {
   }
 
   search(value: string) {
-    this.options = this.original.filter(option => option[this.labelKey].includes(value));
-    requestAnimationFrame(() => this.visibleOptions = getVisibleOptions(this.options));
-  }
-}
-
-export function getVisibleOptions(options: any[]) {
-  const size = options.length;
-  if ( size === 1 ) {
-    return 2;
+    this.options = this.originalOptions.filter(option => option[this.labelKey].includes(value));
+    requestAnimationFrame(() => this.visibleOptions = this.options.length || 1);
   }
 
-  return size;
+  private handleClickOutside() {
+    fromEvent(document, 'click').pipe(
+      filter(({ target }) => {
+        const origin = this.popperRef.reference as HTMLElement;
+        return origin.contains(target as HTMLElement) === false;
+      }),
+      takeUntil(this.closed)
+    ).subscribe(() => {
+      this.close();
+      this.cdr.detectChanges();
+    });
+  }
+
+  ngOnDestroy() {
+  }
 }

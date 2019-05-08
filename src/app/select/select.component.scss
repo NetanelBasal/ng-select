@@ -14,7 +14,7 @@
   padding: 7px;
   font-size: 14px;
   color: #212529;
-
+  cursor: pointer;
   &:focus {
     outline: none;
   }
@@ -25,22 +25,17 @@
   max-height: 128px;
 }
 
-.select-search {
-  height: 32px;
-  display: flex;
-  align-items: center;
-  padding: 0 7px;
 
-  input {
-    border: none;
-    width: 100%;
-    font-size: 14px;
+input {
+  border: none;
+  width: 100%;
+  font-size: 14px;
 
-    &:focus {
-      outline: none;
-    }
+  &:focus {
+    outline: none;
   }
 }
+
 
 .select-item {
   height: 32px;
@@ -58,4 +53,12 @@
     background-color: deeppink;
     color: #fff;
   }
+}
+
+.no-results-item {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 7px;
+  font-size: 14px;
 }
