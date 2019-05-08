@@ -1,0 +1,32 @@
+<div class="dropdown">
+
+  <button class="select-trigger"
+          (click)="toggle(dropdown, origin)" #origin>
+    {{ label }}
+  </button>
+
+  <ng-template #dropdown>
+
+    <div class="select-menu">
+      <cdk-virtual-scroll-viewport itemSize="32" class="select-menu-inner"
+                                   [style.height.px]="visibleOptions * 32">
+        <div class="select-search">
+          <input [formControl]="searchControl" placeholder="Search.." autofocus>
+        </div>
+
+        <section class="content">
+          <div *cdkVirtualFor="let option of options" class="select-item"
+               [class.active]="isActive(option)"
+               (click)="select(option)">
+            <ng-template [ngIf]="!optionTpl">{{option.label}}</ng-template>
+            <ng-template *ngTemplateOutlet="optionTpl; context: {$implicit: option}"></ng-template>
+          </div>
+        </section>
+
+      </cdk-virtual-scroll-viewport>
+    </div>
+
+  </ng-template>
+
+
+</div>
