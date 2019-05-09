@@ -1,4 +1,17 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, EmbeddedViewRef, EventEmitter, Input, OnDestroy, OnInit, Output, TemplateRef, ViewContainerRef } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  EmbeddedViewRef,
+  EventEmitter,
+  Input,
+  OnDestroy,
+  OnInit,
+  Output,
+  TemplateRef,
+  ViewContainerRef,
+  NgZone
+} from '@angular/core';
 import Popper from 'popper.js';
 import { debounceTime, filter, takeUntil } from 'rxjs/operators';
 import { FormControl } from '@angular/forms';
@@ -27,8 +40,7 @@ export class SelectComponent implements OnInit, OnDestroy {
   private popperRef: Popper;
   private originalOptions = [];
 
-  constructor(private vcr: ViewContainerRef, private cdr: ChangeDetectorRef) {
-  }
+  constructor(private vcr: ViewContainerRef, private zone: NgZone, private cdr: ChangeDetectorRef) {}
 
   get isOpen() {
     return !!this.popperRef;
@@ -36,12 +48,16 @@ export class SelectComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.originalOptions = [...this.options];
-    this.model = this.options.find(currentOption => currentOption[this.idKey] === this.model);
+    if (this.model !== undefined) {
+      this.model = this.options.find(currentOption => currentOption[this.idKey] === this.model);
+    }
 
-    this.searchControl.valueChanges.pipe(
-      debounceTime(300),
-      untilDestroyed(this)
-    ).subscribe(term => this.search(term));
+    this.searchControl.valueChanges
+      .pipe(
+        debounceTime(300),
+        untilDestroyed(this)
+      )
+      .subscribe(term => this.search(term));
   }
 
   get label() {
@@ -54,8 +70,10 @@ export class SelectComponent implements OnInit, OnDestroy {
     document.body.appendChild(viewHTML);
     viewHTML.style.width = `${origin.offsetWidth}px`;
 
-    this.popperRef = new Popper(origin, viewHTML, {
-      removeOnDestroy: true
+    this.zone.runOutsideAngular(() => {
+      this.popperRef = new Popper(origin, viewHTML, {
+        removeOnDestroy: true
+      });
     });
 
     this.handleClickOutside();
@@ -77,7 +95,7 @@ export class SelectComponent implements OnInit, OnDestroy {
   }
 
   isActive(option) {
-    if ( !this.model ) {
+    if (!this.model) {
       return false;
     }
     return option[this.idKey] === this.model[this.idKey];
@@ -85,22 +103,23 @@ export class SelectComponent implements OnInit, OnDestroy {
 
   search(value: string) {
     this.options = this.originalOptions.filter(option => option[this.labelKey].includes(value));
-    requestAnimationFrame(() => this.visibleOptions = this.options.length || 1);
+    requestAnimationFrame(() => (this.visibleOptions = this.options.length || 1));
   }
 
   private handleClickOutside() {
-    fromEvent(document, 'click').pipe(
-      filter(({ target }) => {
-        const origin = this.popperRef.reference as HTMLElement;
-        return origin.contains(target as HTMLElement) === false;
-      }),
-      takeUntil(this.closed)
-    ).subscribe(() => {
-      this.close();
-      this.cdr.detectChanges();
-    });
+    fromEvent(document, 'click')
+      .pipe(
+        filter(({ target }) => {
+          const origin = this.popperRef.reference as HTMLElement;
+          return origin.contains(target as HTMLElement) === false;
+        }),
+        takeUntil(this.closed)
+      )
+      .subscribe(() => {
+        this.close();
+        this.cdr.detectChanges();
+      });
   }
 
-  ngOnDestroy() {
-  }
+  ngOnDestroy() {}
 }
