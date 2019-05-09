@@ -64,14 +64,15 @@ export class SelectComponent implements OnInit, OnDestroy {
     return this.model ? this.model[this.labelKey] : 'Select...';
   }
 
-  open(dropdown: TemplateRef<any>, origin: HTMLElement) {
-    this.view = this.vcr.createEmbeddedView(dropdown);
-    const viewHTML = this.view.rootNodes[0];
-    document.body.appendChild(viewHTML);
-    viewHTML.style.width = `${origin.offsetWidth}px`;
+  open(dropdownTpl: TemplateRef<any>, origin: HTMLElement) {
+    this.view = this.vcr.createEmbeddedView(dropdownTpl);
+    const dropdown = this.view.rootNodes[0];
+
+    document.body.appendChild(dropdown);
+    dropdown.style.width = `${origin.offsetWidth}px`;
 
     this.zone.runOutsideAngular(() => {
-      this.popperRef = new Popper(origin, viewHTML, {
+      this.popperRef = new Popper(origin, dropdown, {
         removeOnDestroy: true
       });
     });
